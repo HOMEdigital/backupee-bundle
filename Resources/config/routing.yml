@@ -1,0 +1,7 @@
+home_backupee_homepage:
+      resource: "@HomeBackupeeBundle/Controller"
+      type: annotation
+
+backupNow:
+    path: /backup/now
+    defaults: { _controller: HomeBackupeeBundle:Backup:backupNow}

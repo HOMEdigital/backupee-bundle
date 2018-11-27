@@ -1,0 +1,4 @@
+services:
+#    home_backupee.example:
+#        class: Home\BackupeeBundle\Example
+#        arguments: ["@service_id", "plain_value", "%parameter%"]
