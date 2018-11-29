@@ -19,16 +19,16 @@ class Backup
     {
         #-- path to dir and file
         $rootDir = \System::getContainer()->getParameter('kernel.project_dir');
-        $filesDir = '/files/dbBackup';
-        $file = $rootDir . $filesDir . '/lastBackup.txt';
+        $filepath = $rootDir . '/files/dbBackup';
+        $file = $filepath . '/lastBackup.txt';
         #-- after how many hours the backup will executed again
         $hours = 24;
         #-- how many backup files will be stored
         $stored = 30;
 
         #-- check if dir exists
-        if(!is_dir($rootDir . $filesDir)){
-            mkdir($rootDir . $filesDir);
+        if(!is_dir($filepath)){
+            mkdir($filepath);
         }
 
         #-- check if file exists
@@ -39,85 +39,67 @@ class Backup
         #-- check of file exists
         if(!file_get_contents($file)){
             #-- no file or empty take backup now
-            $time = self::backupNow();
+            $dumpReturn = self::doDump($filepath, 'Dump_'.date("Ymd_His").'.sql');
         }else{
             #-- check if last backup was X hours ago
             $content = file_get_contents($file);
 
             if($content <= strtotime('-' . $hours . ' hours')){
-                $time = self::backupNow();
+                $dumpReturn = self::doDump($filepath, 'Dump_'.date("Ymd_His").'.sql' );
             }
         }
 
         #-- write time in file for next check
-        if($time){
+        if(strpos($dumpReturn, 'ERROR') === false){
             $handle = fopen($file, 'w+');
-            fwrite($handle, $time);
+            fwrite($handle, time());
             fclose($handle);
         }
 
         #-- delete old backups
-        exec('ls -d -1tr ' . $rootDir . $filesDir . '/* | head -n -' . ($stored + 1) . ' | xargs -d \'\n\' rm -f');
+        exec('ls -d -1tr ' . $filepath . '/* | head -n -' . ($stored + 1) . ' | xargs -d \'\n\' rm -f');
     }
 
     /**
-     * take backup via mysqldump
+     * make a mysqldump and write it in file
      *
-     * @return int
+     * @param $filepath - the path to write the file in
+     * @param $filename - the file to write the dump in
+     * @return string
      */
-    public static function backupNow()
+    public static function doDump($filepath, $filename)
     {
         #-- db connection info
         $dbHost = \Config::get('dbHost');
-        $dbPort = \Config::get('dbPort');
+        // $dbPort = \Config::get('dbPort');
         $dbUsername = \Config::get('dbUser');
         $dbPassword = \Config::get('dbPass');
         $dbName = \Config::get('dbDatabase');
-        #-- path to dir and file
-        $rootDir = \System::getContainer()->getParameter('kernel.project_dir');
-        $filesDir = '/files/dbBackup';
-        $file = $rootDir . $filesDir . '/'.$dbName.'_Dump'.date("Ymd_His").'.sql';
 
-        #-- check if dir exists
-        if(!is_dir($rootDir . $filesDir)){
-            mkdir($rootDir . $filesDir);
+        #-- make sure if path exists
+        if(!is_dir($filepath)){
+            mkdir($filepath);
         }
+        $file = $filepath . '/' . $dbName . '_' . $filename . '.gz';
 
-        #-- execute mysqldump command
-        exec("mysqldump --opt --default-character-set=UTF8 --single-transaction --protocol=TCP --user=".$dbUsername." --password=".$dbPassword." --host=".$dbHost." ".$dbName." | gzip > ".$file);
+        #-- check if exec-function is available
+        if (!function_exists('exec')) {
+            return "ERROR: function exec doesn't exist";
+        } else if (in_array('exec', array_map('trim', explode(', ', ini_get('disable_functions'))))) {
+            return "ERROR: function exec in disable_functions entry";
+        } else if (strtolower(ini_get('safe_mode')) == 1) {
+            return "ERROR: safe mode is on";
+        } else {
+            $retVal = NULL;
+            $dmpExe = "(mysqldump --opt --default-character-set=UTF8 --single-transaction --protocol=TCP --user=" . $dbUsername . " --password=" . $dbPassword . " --host=" . $dbHost . " " . $dbName . " | gzip > " . $file . ")";
+            $return = system($dmpExe ." 2>&1", $retVal);
 
-        return time();
-    }
+            if (strpos($return, 'Got error') === false) {
+                return $file;
+            } else {
+                return "ERROR: " . $return;
+            }
 
-    /**
-     * take backup via mysqldump and return it for download
-     *
-     * @return array
-     */
-    public static function backupNowDownload()
-    {
-        #-- db connection info
-        $dbHost = \Config::get('dbHost');
-        $dbPort = \Config::get('dbPort');
-        $dbUsername = \Config::get('dbUser');
-        $dbPassword = \Config::get('dbPass');
-        $dbName = \Config::get('dbDatabase');
-        #-- path to dir and file
-        $rootDir = \System::getContainer()->getParameter('kernel.project_dir');
-        $filesDir = '/files/dbBackup';
-        $file = $rootDir . $filesDir . '/'.$dbName.'_Dump'.date("Ymd_His").'.sql';
-
-        #-- check if dir exists
-        if(!is_dir($rootDir . $filesDir)){
-            mkdir($rootDir . $filesDir);
         }
-
-        #-- execute mysqldump command
-        exec("mysqldump --opt --default-character-set=UTF8 --single-transaction --protocol=TCP --user=".$dbUsername." --password=".$dbPassword." --host=".$dbHost." ".$dbName." | gzip > ".$file);
-
-        return array(
-            'time' => time(),
-            'file' => $file
-        );
     }
 }
