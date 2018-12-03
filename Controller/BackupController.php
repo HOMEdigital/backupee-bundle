@@ -3,7 +3,6 @@
 namespace Home\BackupeeBundle\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
-use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,25 +19,16 @@ class BackupController extends Controller
     public function backupNowAction()
     {
         $this->container->get('contao.framework')->initialize();
+        $filepath = $this->getDumpFilePath();
 
-        $rootDir = \System::getContainer()->getParameter('kernel.project_dir');
-        $filesDir = '/files/dbBackup';
-        $file = $rootDir . $filesDir . '/lastBackup.txt';
+        #-- manage dump
+        $dumpReturn = Backup::doDump($filepath, 'Dump_'.date("Ymd_His").'.sql');
 
-        #-- check if dir exists
-        if(!is_dir($rootDir . $filesDir)){
-            mkdir($rootDir . $filesDir);
+        if(strpos($dumpReturn, 'ERROR') === false){
+            self::writeFile($filepath);
         }
 
-        $time = Backup::backupNow();
-
-        if($time){
-            $handle = fopen($file, 'w+');
-            fwrite($handle, $time);
-            fclose($handle);
-        }
-
-        return new Response('Done');
+        return new Response('<p>Done ' . time() . ' ' . $dumpReturn. '</p>');
     }
 
     /**
@@ -54,27 +44,42 @@ class BackupController extends Controller
         $user->authenticate();
         if($user->isAdmin){
 
-            $rootDir = \System::getContainer()->getParameter('kernel.project_dir');
-            $filesDir = '/files/dbBackup';
-            $file = $rootDir . $filesDir . '/lastBackup.txt';
+            $filepath = $this->getDumpFilePath();
 
-            #-- check if dir exists
-            if(!is_dir($rootDir . $filesDir)){
-                mkdir($rootDir . $filesDir);
+            #-- manage dump
+            $dumpReturn = Backup::doDump($filepath, 'Dump_'.date("Ymd_His").'.sql');
+
+            if(strpos($dumpReturn, 'ERROR') === false){
+                self::writeFile($filepath);
             }
 
-            $data = Backup::backupNowDownload();
-
-            if($data['time']){
-                $handle = fopen($file, 'w+');
-                fwrite($handle, $data['time']);
-                fclose($handle);
-            }
-            
-            return $response = new BinaryFileResponse($data['file'], '200', array(), false,
+            return $response = new BinaryFileResponse($dumpReturn, '200', array(), false,
                 ResponseHeaderBag::DISPOSITION_ATTACHMENT);
         }
 
         return new Response('Forbidden', '403');
+    }
+
+    /**
+     * get the path to store the backups in
+     */
+    public static function getDumpFilePath()
+    {
+        $rootDir = \System::getContainer()->getParameter('kernel.project_dir');
+        $filepath = $rootDir . '/files/dbBackup';
+
+        #-- check if dir exists
+        if(!is_dir($filepath)){
+            mkdir($filepath);
+        }
+
+        return $filepath;
+    }
+
+    private static function writeFile($filepath)
+    {
+        $handle = fopen($filepath . '/lastBackup.txt' , 'w+');
+        fwrite($handle, time());
+        fclose($handle);
     }
 }
