@@ -39,25 +39,25 @@ class Backup
         #-- check of file exists
         if(!file_get_contents($file)){
             #-- no file or empty take backup now
-            $dumpReturn = self::doDump($filepath, 'Dump_'.date("Ymd_His").'.sql');
+            $time = self::doDump($filepath, 'Dump_'.date("Ymd_His").'.sql');
         }else{
             #-- check if last backup was X hours ago
             $content = file_get_contents($file);
 
             if($content <= strtotime('-' . $hours . ' hours')){
-                $dumpReturn = self::doDump($filepath, 'Dump_'.date("Ymd_His").'.sql' );
+                $time = self::doDump($filepath, 'Dump_'.date("Ymd_His").'.sql' );
             }
         }
 
         #-- write time in file for next check
-        if(strpos($dumpReturn, 'ERROR') === false){
+        if($time){
             $handle = fopen($file, 'w+');
             fwrite($handle, time());
             fclose($handle);
         }
 
         #-- delete old backups
-        exec('ls -d -1tr ' . $filepath . '/* | head -n -' . ($stored + 1) . ' | xargs -d \'\n\' rm -f');
+        exec('ls -d -1tr ' . $rootDir . $filesDir . '/* | head -n -' . ($stored + 1) . ' | xargs -d \'\n\' rm -f');
     }
 
     /**
@@ -71,7 +71,7 @@ class Backup
     {
         #-- db connection info
         $dbHost = \Config::get('dbHost');
-        // $dbPort = \Config::get('dbPort');
+        $dbPort = \Config::get('dbPort');
         $dbUsername = \Config::get('dbUser');
         $dbPassword = \Config::get('dbPass');
         $dbName = \Config::get('dbDatabase');
@@ -92,7 +92,8 @@ class Backup
         } else {
             $retVal = NULL;
             $dmpExe = "(mysqldump --opt --default-character-set=UTF8 --single-transaction --protocol=TCP --user=" . $dbUsername . " --password=" . $dbPassword . " --host=" . $dbHost . " " . $dbName . " | gzip > " . $file . ")";
-            $return = system($dmpExe ." 2>&1", $retVal);
+            // $return = system($dmpExe ." 2>&1", $retVal); // mit Ausgabe; gibt allerdings auch Warnungen aus. Unschön, wenn eine Warnung kommt und die seite dann darunter steht. Daher auskommentiert
+            $return = system($dmpExe , $retVal);
 
             if (strpos($return, 'Got error') === false) {
                 return $file;
