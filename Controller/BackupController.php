@@ -2,6 +2,7 @@
 
 namespace Home\BackupeeBundle\Controller;
 
+use Contao\Database;
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
@@ -9,8 +10,30 @@ use Symfony\Component\HttpFoundation\Response;
 use Home\BackupeeBundle\Resources\contao\hooks\Backup;
 use Symfony\Component\Routing\Annotation\Route;
 
+/**
+ * @Route(defaults={"_scope" = "backend", "_token_check" = true})
+ */
 class BackupController extends Controller
 {
+    /**
+     * @Route("/import/{fileName}", name="importDb")
+     *
+     * @param $fileName
+     * @return Response
+     */
+    public function importDbAction($fileName)
+    {
+        $this->container->get('contao.framework')->initialize();
+        $filePath = $this->getDumpFilePath() . '/' . $fileName;
+
+        if(file_exists($filePath)){
+            $response = $this->importDbFile($filePath);
+        }else{
+            $response = "File not found at: " . $filePath;
+        }
+
+        return new Response($response);
+    }
 
     /**
      * @Route("/backup/now", name="backupNow")
@@ -82,5 +105,46 @@ class BackupController extends Controller
         $handle = fopen($filepath . '/lastBackup.txt' , 'w+');
         fwrite($handle, time());
         fclose($handle);
+    }
+
+    private function importDbFile($filePath)
+    {
+        // Connect & select the database
+        $db = Database::getInstance();
+
+        // Temporary variable, used to store current query
+        $templine = '';
+
+        // Read in entire file
+        if(strpos($filePath,'.gz') === false){
+            $lines = file($filePath);
+        }else{
+            $lines = gzfile($filePath);
+        }
+
+        $error = '';
+
+        // Loop through each line
+        foreach ($lines as $line){
+            // Skip it if it's a comment
+            if(substr($line, 0, 2) == '--' || $line == ''){
+                continue;
+            }
+
+            // Add this line to the current segment
+            $templine .= $line;
+
+            // If it has a semicolon at the end, it's the end of the query
+            if (substr(trim($line), -1, 1) == ';'){
+                // Perform the query
+                if(!$db->prepare($templine)->execute()){
+                    $error .= 'Error performing query "<b>' . $templine . '</b>": ' . $db->error . '<br /><br />';
+                }
+
+                // Reset temp variable to empty
+                $templine = '';
+            }
+        }
+        return !empty($error)?$error:'Done';
     }
 }
