@@ -27,7 +27,10 @@ class BackupController extends Controller
         $filePath = $this->getDumpFilePath() . '/' . $fileName;
 
         if(file_exists($filePath)){
-            $response = $this->importDbFile($filePath);
+            #-- import via php script
+            #$response = $this->importDbFile($filePath);
+            #-- import via mysql cli
+            $response = $this->importDbFileCli($filePath);
         }else{
             $response = "File not found at: " . $filePath;
         }
@@ -146,5 +149,39 @@ class BackupController extends Controller
             }
         }
         return !empty($error)?$error:'Done';
+    }
+
+    private function importDbFileCli($filePath)
+    {
+        $dbHost = \Config::get('dbHost');
+        $dbUsername = \Config::get('dbUser');
+        $dbPassword = \Config::get('dbPass');
+        $dbName = \Config::get('dbDatabase');
+
+        // check file type
+        if(strpos($filePath,'.gz') === false){
+            $cmd = "(mysql --user=" . $dbUsername . " --password=" . $dbPassword . " --host=" . $dbHost . " " . $dbName . " < " . $filePath . ")";
+        }else{
+            $cmd = "(zcat " . $filePath . " | mysql --user=" . $dbUsername . " --password=" . $dbPassword . " --host=" . $dbHost . " " . $dbName . ")";
+        }
+
+        #-- check if exec-function is available
+        if (!function_exists('exec')) {
+            return "ERROR: function exec doesn't exist";
+        } else if (in_array('exec', array_map('trim', explode(', ', ini_get('disable_functions'))))) {
+            return "ERROR: function exec in disable_functions entry";
+        } else if (strtolower(ini_get('safe_mode')) == 1) {
+            return "ERROR: safe mode is on";
+        } else {
+            $retVal = NULL;
+
+            $return = system($cmd , $retVal);
+
+            if (strpos($return, 'Got error') === false) {
+                return 'Done';
+            } else {
+                return "ERROR: " . $return;
+            }
+        }
     }
 }

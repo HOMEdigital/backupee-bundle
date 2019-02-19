@@ -91,8 +91,13 @@ class Backup
             return "ERROR: safe mode is on";
         } else {
             $retVal = NULL;
-            $dmpExe = "(mysqldump --opt --default-character-set=UTF8 --single-transaction --protocol=TCP --ignore-table=" . $dbName . ".tl_log --user=" . $dbUsername . " --password=" . $dbPassword . " --host=" . $dbHost . " " . $dbName . " | gzip > " . $file . ")";
-            // $return = system($dmpExe ." 2>&1", $retVal); // mit Ausgabe; gibt allerdings auch Warnungen aus. Unschön, wenn eine Warnung kommt und die seite dann darunter steht. Daher auskommentiert
+            #-- complete export
+            $dmpExe = "(mysqldump --opt --default-character-set=UTF8 --single-transaction --protocol=TCP --user=" . $dbUsername . " --password=" . $dbPassword . " --host=" . $dbHost . " " . $dbName . " | gzip > " . $file . ")";
+            #-- exclude tl_log from export
+            #$dmpExe = "(mysqldump --opt --default-character-set=UTF8 --single-transaction --protocol=TCP --ignore-table=" . $dbName . ".tl_log --user=" . $dbUsername . " --password=" . $dbPassword . " --host=" . $dbHost . " " . $dbName . " | gzip > " . $file . ")";
+            
+            #-- mit Ausgabe; gibt allerdings auch Warnungen aus. Unschön, wenn eine Warnung kommt und die seite dann darunter steht. Daher auskommentiert
+            #$return = system($dmpExe ." 2>&1", $retVal);
             $return = system($dmpExe , $retVal);
 
             if (strpos($return, 'Got error') === false) {
