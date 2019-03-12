@@ -16,6 +16,27 @@ use Symfony\Component\Routing\Annotation\Route;
 class BackupController extends Controller
 {
     /**
+     * @Route("/import/script/{fileName}", name="importDbWithScript")
+     *
+     * @param $fileName
+     * @return Response
+     */
+    public function importDbWithScriptAction($fileName)
+    {
+        $this->container->get('contao.framework')->initialize();
+        $filePath = $this->getDumpFilePath() . '/' . $fileName;
+
+        if(file_exists($filePath)){
+            #-- import via php script
+            $response = $this->importDbFile($filePath);
+        }else{
+            $response = "File not found at: " . $filePath;
+        }
+
+        return new Response($response);
+    }
+
+    /**
      * @Route("/import/{fileName}", name="importDb")
      *
      * @param $fileName
@@ -27,8 +48,6 @@ class BackupController extends Controller
         $filePath = $this->getDumpFilePath() . '/' . $fileName;
 
         if(file_exists($filePath)){
-            #-- import via php script
-            #$response = $this->importDbFile($filePath);
             #-- import via mysql cli
             $response = $this->importDbFileCli($filePath);
         }else{
@@ -36,6 +55,26 @@ class BackupController extends Controller
         }
 
         return new Response($response);
+    }
+
+    /**
+     * @Route("/backup/now/script", name="nackupNowForScript")
+     *
+     * @return Response
+     */
+    public function backupNowForScriptAction()
+    {
+        $this->container->get('contao.framework')->initialize();
+        $filepath = $this->getDumpFilePath();
+
+        #-- manage dump
+        $dumpReturn = Backup::doDump($filepath, 'Dump_'.date("Ymd_His").'_no_tl_log.sql', true);
+
+        if(strpos($dumpReturn, 'ERROR') === false){
+            self::writeFile($filepath);
+        }
+
+        return new Response('<p>Done ' . time() . ' ' . $dumpReturn. '</p>');
     }
 
     /**
@@ -178,7 +217,7 @@ class BackupController extends Controller
             $return = system($cmd , $retVal);
 
             if (strpos($return, 'Got error') === false) {
-                return 'Done';
+                return 'Done ' . $return;
             } else {
                 return "ERROR: " . $return;
             }

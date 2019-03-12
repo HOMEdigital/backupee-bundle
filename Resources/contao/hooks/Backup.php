@@ -65,9 +65,10 @@ class Backup
      *
      * @param $filepath - the path to write the file in
      * @param $filename - the file to write the dump in
+     * @param $forScript - when true exclude the tl_log table to import dump via script
      * @return string
      */
-    public static function doDump($filepath, $filename)
+    public static function doDump($filepath, $filename, $forScript = false)
     {
         #-- db connection info
         $dbHost = \Config::get('dbHost');
@@ -91,10 +92,14 @@ class Backup
             return "ERROR: safe mode is on";
         } else {
             $retVal = NULL;
-            #-- complete export
-            $dmpExe = "(mysqldump --opt --default-character-set=UTF8 --single-transaction --protocol=TCP --user=" . $dbUsername . " --password=" . $dbPassword . " --host=" . $dbHost . " " . $dbName . " | gzip > " . $file . ")";
-            #-- exclude tl_log from export
-            #$dmpExe = "(mysqldump --opt --default-character-set=UTF8 --single-transaction --protocol=TCP --ignore-table=" . $dbName . ".tl_log --user=" . $dbUsername . " --password=" . $dbPassword . " --host=" . $dbHost . " " . $dbName . " | gzip > " . $file . ")";
+
+            if($forScript){
+                #-- exclude tl_log from export
+                $dmpExe = "(mysqldump --opt --default-character-set=UTF8 --single-transaction --protocol=TCP --ignore-table=" . $dbName . ".tl_log --user=" . $dbUsername . " --password=" . $dbPassword . " --host=" . $dbHost . " " . $dbName . " | gzip > " . $file . ")";
+            }else{
+                #-- complete export
+                $dmpExe = "(mysqldump --opt --default-character-set=UTF8 --single-transaction --protocol=TCP --user=" . $dbUsername . " --password=" . $dbPassword . " --host=" . $dbHost . " " . $dbName . " | gzip > " . $file . ")";
+            }
             
             #-- mit Ausgabe; gibt allerdings auch Warnungen aus. Unschön, wenn eine Warnung kommt und die seite dann darunter steht. Daher auskommentiert
             #$return = system($dmpExe ." 2>&1", $retVal);
