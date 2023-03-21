@@ -46,6 +46,8 @@ class Backup
 
             if($content <= strtotime('-' . $hours . ' hours')){
                 $time = self::doDump($filepath, 'Dump_'.date("Ymd_His").'.sql' );
+            }else{
+                $time = false;
             }
         }
 
