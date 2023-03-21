@@ -59,7 +59,7 @@ class Backup
         }
 
         #-- delete old backups
-        exec('ls -d -1tr ' . $rootDir . $filesDir . '/* | head -n -' . ($stored + 1) . ' | xargs -d \'\n\' rm -f');
+        exec('ls -d -1tr ' . $filepath . '/* | head -n -' . ($stored + 1) . ' | xargs -d \'\n\' rm -f');
     }
 
     /**
